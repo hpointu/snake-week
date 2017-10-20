@@ -105,9 +105,6 @@
           (assoc :food (spawn-food current-time)
                  :last-spawn current-time)
           (update :snake grow)
-          (update :snake grow)
-          (update :snake grow)
-          (update :snake grow)
           (update :speed #(max (dec %) 5))
           (update :score + (get-score (get-age food current-time))))
       state
@@ -188,18 +185,17 @@
         (draw-hud @state)
         ]))))
 
-(do
-  (events/removeAll js/window "keydown")
-  (events/removeAll js/window "keyup")
-  (events/listen js/window "keydown"
+(doto js/window
+  (events/removeAll "keydown")
+  (events/removeAll "keyup")
+  (events/listen "keydown"
                  (fn [e]
                    (swap! state on-key-down (.-keyCode e))
                    (swap! pressed-keys conj (.-keyCode e))))
-  (events/listen js/window "keyup"
+  (events/listen "keyup"
                  (fn [e]
                    (swap! state on-key-up (.-keyCode e))
                    (swap! pressed-keys disj (.-keyCode e)))))
 (doto game
   (p/start)
   (p/set-screen main-screen))
-
