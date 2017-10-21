@@ -1,5 +1,7 @@
 (ns snakeweek.core
   (:require [play-cljs.core :as p]
+            [snakeweek.maps :as maps]
+            [snakeweek.drawing :as d]
             [goog.events :as events]))
 
 (enable-console-print!)
@@ -8,28 +10,21 @@
 (defonce state (atom {}))
 (defonce pressed-keys (atom #{}))
 
-(def WIDTH 40)
-(def HEIGHT 30)
-(def UNIT 12)
 
-(defn cell-drawable [[x y]]
-  [:fill {:color "white"}
-   [:rect {:x (* UNIT x) :y (* UNIT y) :width UNIT :height UNIT}]])
+(defn coords= [[x y] [fx fy]]
+  (and (= x fx) (= y fy)))
 
-(defn food-drawable [[x y ttl]]
-  [:fill {:color "green"}
-   [:rect {:x (* UNIT x) :y (* UNIT y) :width UNIT :height UNIT}]])
-
-(defn update-snake [snake dir]
+(defn update-snake [{:keys [snake dir level]}]
   (defn adjust [[x y]]
-    (let [x (cond (< x 0) (dec WIDTH)
-                  (>= x WIDTH) 0
+    (let [width (:width level)
+          height (:height level)
+          x (cond (< x 0) (dec width)
+                  (>= x width) 0
                   :else x)
-          y (cond (< y 0) (dec HEIGHT)
-                  (>= y HEIGHT) 0
+          y (cond (< y 0) (dec height)
+                  (>= y height) 0
                   :else y)]
-      [x y]
-      ))
+      [x y]))
 
   (defn new-head [[x y]]
     (case dir
@@ -38,19 +33,19 @@
       :south [x (inc y)]
       :west  [(dec x) y]))
   (let [head (first snake)]
-    (cons (-> head new-head adjust) (drop-last snake))
-    ))
+    (cons (-> head new-head adjust) (drop-last snake))))
 
-(defn die [{:keys [snake] :as state}]
+(defn die [{:keys [snake walls] :as state}]
   (let [[head & tail] snake]
-    (if (some #(= head %) tail)
+    (if (or (some #(= head %) tail)
+            (some #(= head %) walls))
         (assoc state :dead true)
         state)))
 
 (defn move-snake
   [{:keys [snake dir last-move current-time speed] :as state}]
   (if (> (- current-time last-move) speed)
-      (let [new (update-snake snake dir)]
+      (let [new (update-snake state)]
         (-> state
             (assoc :snake new
                    :last-move current-time)
@@ -70,24 +65,26 @@
      ))
   )
 
-(defn spawn-food [spawn-time]
-  (let [x (rand-int WIDTH)
-        y (rand-int HEIGHT)]
-    [x y spawn-time]
-    )
-  )
+(defn spawn-food [{:keys [width height current-time snake walls] :as state}]
+  (let [x (rand-int width)
+        y (rand-int height)]
+    (if (or (some #(coords= [x y] %) walls)
+            (some #(coords= [x y] %) snake))
+      (spawn-food state)
+      (assoc state
+             :food [x y current-time]
+             :last-spawn current-time))
+    ))
 
 (defn get-age [[_ _ birth] current-time]
   (- current-time birth))
 
-(defn update-food [[x y birth :as food] current-time ttl]
-  (if (> (get-age food current-time) ttl)
-    (spawn-food current-time)
-    food
-    ))
-
-(defn head-on-food? [[x y] [fx fy]]
-  (and (= x fx) (= y fy)))
+(defn update-food
+  [{:keys [food current-time width height]:as state} ttl]
+  (let [[x y birth] food]
+    (if (> (get-age food current-time) ttl)
+      (spawn-food state)
+      state)))
 
 (defn grow [snake]
   (let [head (first snake)]
@@ -95,15 +92,14 @@
   )
 
 (defn get-score [age]
-  (int (/ (+ 1000 (- 6000 age)) 10))
-  )
+  (int (/ (+ 1000 (- 6000 age)) 10)))
 
-(defn eat-food [{:keys [snake head food current-time]:as state}]
+(defn eat-food
+  [{:keys [snake head food current-time width height] :as state}]
   (let [head (first snake)]
-    (if (head-on-food? head food)
+    (if (coords= head food)
       (-> state
-          (assoc :food (spawn-food current-time)
-                 :last-spawn current-time)
+          spawn-food
           (update :snake grow)
           (update :speed #(max (dec %) 5))
           (update :score + (get-score (get-age food current-time))))
@@ -115,75 +111,58 @@
     state
     (-> state
         (handle-input)
-        (update :food update-food (:current-time state) 10000)
+        (update-food 10000)
         (move-snake)
         (eat-food)
         )))
 
-(defn draw-background []
-  [:fill {:color "black"}
-   [:rect {:x 0 :y 0 :width (.-innerWidth js/window) :height (.-innerHeight js/window)}]])
-
-(defn draw-board []
-  [:stroke {:color "white"}
-   [:fill {:color "black"}
-    [:rect {:x 0 :y 0 :width (* WIDTH UNIT) :height (* HEIGHT UNIT)}]]])
-
-(defn draw-score [score]
-  [:fill {:color "white"}
-   [:text {:value (str "Score: " score)
-           :x 20 :y (+ 20 (* HEIGHT UNIT))
-           :size 14 :font "Georgia"}]])
-
-(defn init-state []
+(defn init-state! [level]
   (let [ct (p/get-total-time game)]
-    (reset! state {:snake [[6 5] [5 5] [4 5]]
+    (reset! state
+            (into level
+                  {:snake [[6 5] [5 5] [4 5]]
                    :speed 80
                    :score 0
+                   :level level
                    :paused false
-                   :food (spawn-food ct)
                    :last-spawn ct
                    :last-move ct
                    :current-time ct
-                   :dir :east
-                   })))
+                   :dir :east}))))
 
-(defn draw-hud [{:keys [paused] :as state}]
-  (if paused
-    [:fill {:color "red"}
-     [:text {:value "PAUSED" :size 20 :x (- (/ (* UNIT WIDTH) 2) 40) :y (/ (* UNIT HEIGHT) 2)}]]
-    [])
-  )
+(defn new-game! [level]
+  (init-state! level)
+  (swap! state spawn-food))
 
 (defn on-key-down [state key-code]
   (if (= key-code 32) ; SPACE BAR
     (update state :paused not)
-    state)
-  )
+    state))
 
 (defn on-key-up [state key-code]
   state)
 
 (def main-screen
-  (reify p/Screen
-    (on-show [this]
-      (init-state))
-    (on-hide [this])
-    (on-render [this]
-      (swap! state assoc :current-time (p/get-total-time game))
-      (swap! state update-game (p/get-delta-time game))
-      (when (:dead @state) (init-state))
-      (p/render
-       game
-       [(draw-background)
-        (draw-board)
-        (draw-score (:score @state))
-        (map cell-drawable (:snake @state))
-        (let [food (:food @state)]
-          (when food (food-drawable food)))
-
-        (draw-hud @state)
-        ]))))
+  (let [level (maps/walls 40 30)]
+    (reify p/Screen
+      (on-show [this]
+        (new-game! level))
+      (on-hide [this])
+      (on-render [this]
+        (swap! state assoc :current-time (p/get-total-time game))
+        (swap! state update-game (p/get-delta-time game))
+        (when (:dead @state) (new-game! level))
+        (p/render
+         game
+         [(d/draw-background)
+          (d/draw-board @state)
+          (d/draw-score @state)
+          (map (d/draw-cell @state) (:snake @state))
+          (let [food (:food @state)]
+            (when food (d/draw-food food)))
+          (d/draw-hud @state)
+          (d/draw-walls (:walls @state))
+          ])))))
 
 (doto js/window
   (events/removeAll "keydown")
