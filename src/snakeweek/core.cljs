@@ -1,6 +1,7 @@
 (ns snakeweek.core
   (:require [play-cljs.core :as p]
             [snakeweek.maps :as maps]
+            [snakeweek.title :as title]
             [snakeweek.drawing :as d]
             [goog.events :as events]))
 
@@ -162,13 +163,13 @@
       (on-render [this]
         (swap! state assoc :current-time (p/get-total-time game))
         (swap! state update-game (p/get-delta-time game))
-        (when (:dead @state) (p/set-screen game menu-screen))
+        (when (:dead @state) (p/set-screen game title/menu-screen))
         (p/render
          game
          [(d/draw-background "#000")
           [:rect ; container
            {:x (- (/ (p/get-width game) 2) (/ (* d/UNIT (:width @state)) 2))
-            :y 100}
+            :y 10}
             (d/draw-board @state)
             (d/draw-score @state)
             (map (d/draw-cell @state) (:snake @state))
@@ -180,46 +181,6 @@
           ]
          )))))
 
-(def menu-screen
-  (let [active-id (atom 0)]
-    (defn menu-action [keycode]
-      (case keycode
-        38 (reset! active-id (max 0 (dec @active-id)))
-        40 (reset! active-id (min 2 (inc @active-id)))
-        13 (case @active-id
-             0 (p/set-screen game main-screen)
-             nil)
-        nil
-        ))
-    (reify p/Screen
-      (on-show [this]
-        (events/removeAll js/window "keydown")
-        (events/removeAll js/window "keyup")
-        (events/listen js/window "keydown"
-                       #(menu-action (.-keyCode %)))
-        )
-     (on-hide [this])
-     (on-render [this]
-       (p/render
-        game
-        [
-         (d/draw-background "#000")
-         [:fill {:color "black"}
-          [:rect
-           {:width 500 :height 400
-            :x (- (/ (p/get-width game) 2) 250)
-            :y 20}
-           [:no-smooth
-            [:image {:x 100 :y 0 :name "logo.png" :width 300 :height 90}]
-            (d/create-menu
-             250 150 ["New Game" "View Scores" "Credits"] @active-id)
-            ]
-           ]
-          ]
-         ]
-        ))
-     )))
-
 (doto game
   (p/start)
-  (p/set-screen menu-screen))
+  (p/set-screen title/menu-screen))
