@@ -1,6 +1,51 @@
-(ns snakeweek.drawing)
+(ns snakeweek.drawing
+  (:require [play-cljs.core :as p]
+            [cljs.core.async :refer [promise-chan put! <!]]
+            )
+  (:require-macros [cljs.core.async.macros :refer [go]]))
 
 (def UNIT 12)
+
+(def font-atom (atom nil))
+(def font-ready? (atom false))
+
+(defmethod p/draw-sketch! :no-smooth [game ^js/p5 renderer content parent-opts]
+  (let [[command & children] content]
+    (.push renderer)
+    (.noSmooth renderer)
+    (p/draw-sketch! game renderer children parent-opts)
+    (.pop renderer)))
+
+(defmethod p/draw-sketch! :menu-entry [game ^js/p5 renderer content parent-opts]
+  (let [[command opts & children] content
+        {:keys [x y value size active?] :as opts}
+        (p/update-opts opts parent-opts p/text-defaults)]
+    (when (not @font-atom)
+      (let [loaded? (promise-chan)]
+        (reset! font-atom (.loadFont renderer
+                                     "ArcadeAlternate.ttf"
+                                     #(put! loaded? true)))
+        (go (let [finished? (<! loaded?)]
+              (reset! font-ready? true)))))
+
+    (when @font-ready?
+      (doto renderer
+        (.textSize size)
+        (.textFont @font-atom)
+        (.textAlign (p/halign->constant renderer :center)
+                    (p/valign->constant renderer :center))
+        (.text value x y))
+
+      (let [font @font-atom
+            bounds (.textBounds font value x y)
+            bx (.-x bounds) by (.-y bounds)
+            bw (.-w bounds) bh (.-h bounds)]
+        (when active?
+          (p/draw-sketch! game renderer children
+                          (p/update-opts opts {:x (- bx x) :y (- by y)} {})))
+        ))
+    )
+  )
 
 (defn draw-cell [state]
   (fn [[x y]]
@@ -8,23 +53,25 @@
      [:rect {:x (* UNIT x) :y (* UNIT y) :width UNIT :height UNIT}]]))
 
 (defn draw-food [[x y ttl]]
-  [:fill {:color "green"}
+  [:fill {:color "yellow"}
    [:rect {:x (* UNIT x) :y (* UNIT y) :width UNIT :height UNIT}]])
 
-(defn draw-background []
-  [:fill {:color "black"}
+(defn draw-background [color]
+  [:fill {:color color}
    [:rect {:x 0 :y 0 :width (.-innerWidth js/window) :height (.-innerHeight js/window)}]])
 
 (defn draw-board [{:keys [width height]}]
   [:stroke {:color "white"}
    [:fill {:color "black"}
-    [:rect {:x 0 :y 0 :width (* width UNIT) :height (* height UNIT)}]]])
+    [:rect {:x -1 :y -1
+            :width (+ 2 (* width UNIT))
+            :height (+ 2 (* height UNIT))}]]])
 
 (defn draw-score [{:keys [score height]}]
   [:fill {:color "white"}
    [:text {:value (str "Score: " score)
            :x 20 :y (+ 20 (* height UNIT))
-           :size 14 :font "Georgia"}]])
+           :size 14 :font "Georgia"}]]){}
 
 (defn draw-hud [{:keys [paused width height] :as state}]
   (if paused
@@ -37,7 +84,20 @@
 
 (defn draw-walls [wall-coords]
   (for [[x y] wall-coords]
-    [:fill {:color "blue"}
+    [:fill {:color "grey"}
      [:rect {:x (* UNIT x) :y (* UNIT y)
              :width UNIT :height UNIT}]]
     ))
+
+
+(defn create-menu [x y items active-id]
+  (defn active? [i] (= active-id i))
+    [:rect {:x x :y y :width 0 :height 0}
+     (for [[i item] (seq (map-indexed vector items))]
+       [:fill {:color (if (active? i) "white" "#666")}
+        [:menu-entry {:value item :x 0 :y (* i 30) :size 18
+                      :active? (active? i)}
+         [:fill {:color "white"}
+          [:rect {:x -15 :y 4 :width 8 :height 8}]]]]
+        )]
+  )

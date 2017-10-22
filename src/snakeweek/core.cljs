@@ -121,7 +121,7 @@
     (reset! state
             (into level
                   {:snake [[6 5] [5 5] [4 5]]
-                   :speed 80
+                   :speed 70
                    :score 0
                    :level level
                    :paused false
@@ -154,15 +154,50 @@
         (when (:dead @state) (new-game! level))
         (p/render
          game
-         [(d/draw-background)
-          (d/draw-board @state)
-          (d/draw-score @state)
-          (map (d/draw-cell @state) (:snake @state))
-          (let [food (:food @state)]
-            (when food (d/draw-food food)))
-          (d/draw-hud @state)
-          (d/draw-walls (:walls @state))
-          ])))))
+         [(d/draw-background "#000")
+          [:rect ; container
+           {:x (- (/ (p/get-width game) 2) (/ (* d/UNIT (:width @state)) 2))
+            :y 100}
+            (d/draw-board @state)
+            (d/draw-score @state)
+            (map (d/draw-cell @state) (:snake @state))
+            (let [food (:food @state)]
+              (when food (d/draw-food food)))
+            (d/draw-hud @state)
+           (d/draw-walls (:walls @state))
+           ]
+          ]
+         )))))
+
+(def menu-screen
+  (let [active-id (atom 0)]
+    (reify p/Screen
+      (on-show [this]
+        (events/removeAll js/window "keydown")
+        (events/removeAll js/window "keyup")
+        (events/listen js/window "keydown" #(reset! active-id (min 2 (inc @active-id))))
+        )
+     (on-hide [this])
+     (on-render [this]
+       (p/render
+        game
+        [
+         (d/draw-background "#000")
+         [:fill {:color "black"}
+          [:rect
+           {:width 500 :height 400
+            :x (- (/ (p/get-width game) 2) 250)
+            :y 20}
+           [:no-smooth
+            [:image {:x 100 :y 0 :name "logo.png" :width 300 :height 90}]
+            (d/create-menu
+             250 150 ["New Game" "View Scores" "Credits"] @active-id)
+            ]
+           ]
+          ]
+         ]
+        ))
+     )))
 
 (doto js/window
   (events/removeAll "keydown")
@@ -177,4 +212,4 @@
                    (swap! pressed-keys disj (.-keyCode e)))))
 (doto game
   (p/start)
-  (p/set-screen main-screen))
+  (p/set-screen menu-screen))
