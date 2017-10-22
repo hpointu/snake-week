@@ -146,12 +146,23 @@
   (let [level (maps/walls 40 30)]
     (reify p/Screen
       (on-show [this]
+        (doto js/window
+          (events/removeAll "keydown")
+          (events/removeAll "keyup")
+          (events/listen "keydown"
+                         (fn [e]
+                           (swap! state on-key-down (.-keyCode e))
+                           (swap! pressed-keys conj (.-keyCode e))))
+          (events/listen "keyup"
+                         (fn [e]
+                           (swap! state on-key-up (.-keyCode e))
+                           (swap! pressed-keys disj (.-keyCode e)))))
         (new-game! level))
       (on-hide [this])
       (on-render [this]
         (swap! state assoc :current-time (p/get-total-time game))
         (swap! state update-game (p/get-delta-time game))
-        (when (:dead @state) (new-game! level))
+        (when (:dead @state) (p/set-screen game menu-screen))
         (p/render
          game
          [(d/draw-background "#000")
@@ -171,11 +182,21 @@
 
 (def menu-screen
   (let [active-id (atom 0)]
+    (defn menu-action [keycode]
+      (case keycode
+        38 (reset! active-id (max 0 (dec @active-id)))
+        40 (reset! active-id (min 2 (inc @active-id)))
+        13 (case @active-id
+             0 (p/set-screen game main-screen)
+             nil)
+        nil
+        ))
     (reify p/Screen
       (on-show [this]
         (events/removeAll js/window "keydown")
         (events/removeAll js/window "keyup")
-        (events/listen js/window "keydown" #(reset! active-id (min 2 (inc @active-id))))
+        (events/listen js/window "keydown"
+                       #(menu-action (.-keyCode %)))
         )
      (on-hide [this])
      (on-render [this]
@@ -199,17 +220,6 @@
         ))
      )))
 
-(doto js/window
-  (events/removeAll "keydown")
-  (events/removeAll "keyup")
-  (events/listen "keydown"
-                 (fn [e]
-                   (swap! state on-key-down (.-keyCode e))
-                   (swap! pressed-keys conj (.-keyCode e))))
-  (events/listen "keyup"
-                 (fn [e]
-                   (swap! state on-key-up (.-keyCode e))
-                   (swap! pressed-keys disj (.-keyCode e)))))
 (doto game
   (p/start)
   (p/set-screen menu-screen))
