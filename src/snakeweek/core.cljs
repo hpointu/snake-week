@@ -9,6 +9,7 @@
 (defonce game (p/create-game (.-innerWidth js/window) (.-innerHeight js/window)))
 (defonce state (atom {}))
 (defonce pressed-keys (atom #{}))
+(defonce menu-screen-atom (atom nil))
 
 
 (defn coords= [[x y] [fx fy]]
@@ -162,7 +163,7 @@
       (on-render [this]
         (swap! state assoc :current-time (p/get-total-time game))
         (swap! state update-game (p/get-delta-time game))
-        (when (:dead @state) (p/set-screen game menu-screen))
+        (when (:dead @state) (p/set-screen game @menu-screen-atom))
         (p/render
          game
          [(d/draw-background "#000")
@@ -176,9 +177,39 @@
               (when food (d/draw-food food)))
             (d/draw-hud @state)
            (d/draw-walls (:walls @state))
-           ]
-          ]
+           ]]
          )))))
+
+(def credits-screen
+  (reify p/Screen
+    (on-show [this]
+      (events/removeAll js/window "keydown")
+      (events/removeAll js/window "keyup")
+      ; (events/listen js/window "keydown"
+      ;                #(p/set-screen game @menu-screen-atom))
+      )
+
+    (on-render [this]
+      (let [i (mod (int (/ (p/get-total-time game) 100)) 5)]
+        (p/render
+        game
+        [
+         (d/draw-background "#000")
+         [:fill {:color "black"}
+          [:rect
+           {:width 500 :height 300
+            :x (- (/ (p/get-width game) 2) 250)
+            :y 20}
+                                        ;[:fill {:color "white"}
+                                        ; [:text {:value "Press any key to go back to main menu"
+                                        ;         :y 300
+                                        ;         :size 12}]
+                                        ; ]
+           ]]
+         ]))
+      )
+    (on-hide [this])
+    ))
 
 (def menu-screen
   (let [active-id (atom 0)]
@@ -188,6 +219,7 @@
         40 (reset! active-id (min 2 (inc @active-id)))
         13 (case @active-id
              0 (p/set-screen game main-screen)
+             2 (p/set-screen game credits-screen)
              nil)
         nil
         ))
@@ -204,22 +236,21 @@
         game
         [
          (d/draw-background "#000")
-         [:fill {:color "black"}
+         [:fill {:color "#000"}
           [:rect
-           {:width 500 :height 400
+           {:width 500 :height 300
             :x (- (/ (p/get-width game) 2) 250)
             :y 20}
            [:no-smooth
             [:image {:x 100 :y 0 :name "logo.png" :width 300 :height 90}]
             (d/create-menu
+             (p/get-total-time game)
              250 150 ["New Game" "View Scores" "Credits"] @active-id)
-            ]
-           ]
-          ]
-         ]
+            ]]]]
         ))
      )))
 
 (doto game
   (p/start)
   (p/set-screen menu-screen))
+(reset! menu-screen-atom menu-screen)

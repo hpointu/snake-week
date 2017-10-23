@@ -34,7 +34,8 @@
         (.textFont @font-atom)
         (.textAlign (p/halign->constant renderer :center)
                     (p/valign->constant renderer :center))
-        (.text value x y))
+        (.text value x y)
+        )
 
       (let [font @font-atom
             bounds (.textBounds font value x y)
@@ -42,10 +43,10 @@
             bw (.-w bounds) bh (.-h bounds)]
         (when active?
           (p/draw-sketch! game renderer children
-                          (p/update-opts opts {:x (- bx x) :y (- by y)} {})))
-        ))
-    )
-  )
+                          (dissoc (p/update-opts opts {:x (- bx x) :y (- by y)} {})
+                                  :value))
+          )
+        ))))
 
 (defn draw-cell [state]
   (fn [[x y]]
@@ -90,14 +91,21 @@
     ))
 
 
-(defn create-menu [x y items active-id]
+(defn create-menu [ct x y items active-id]
   (defn active? [i] (= active-id i))
+
+  (let [frame (mod (int (/ ct 100)) 5)]
     [:rect {:x x :y y :width 0 :height 0}
      (for [[i item] (seq (map-indexed vector items))]
        [:fill {:color (if (active? i) "white" "#666")}
         [:menu-entry {:value item :x 0 :y (* i 30) :size 18
                       :active? (active? i)}
-         [:fill {:color "white"}
-          [:rect {:x -15 :y 4 :width 8 :height 8}]]]]
-        )]
-  )
+         [:no-smooth
+          [:animation {:duration 100}
+           [:image {:name "arrow.png" :x -18 :y 2 :sx 0 :swidth 5 :width 10 :height 10}]
+           [:image {:name "arrow.png" :x -18 :y 2 :sx 5 :swidth 5 :width 10 :height 10}]
+           [:image {:name "arrow.png" :x -18 :y 2 :sx 10 :swidth 5 :width 10 :height 10}]
+           [:image {:name "arrow.png" :x -18 :y 2 :sx 15 :swidth 5 :width 10 :height 10}]
+           [:image {:name "arrow.png" :x -18 :y 2 :sx 20 :swidth 5 :width 10 :height 10}]
+           ]]]]
+       )]))
