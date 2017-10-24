@@ -160,8 +160,11 @@
                        (fn [e]
                          (swap! state on-key-up (.-keyCode e))
                          (swap! pressed-keys disj (.-keyCode e)))))
-      (new-game! (get @levels 0)))
-    (on-hide [this])
+      (new-game! (get @levels 0))
+      (.play (assets/get-asset "snake.mp3"))
+      )
+    (on-hide [this]
+      (.stop (assets/get-asset "snake.mp3")))
     (on-render [this]
       (swap! state assoc :current-time (p/get-total-time game))
       (swap! state update-game (p/get-delta-time game))

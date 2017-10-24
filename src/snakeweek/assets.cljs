@@ -1,5 +1,7 @@
 (ns snakeweek.assets
-  (:require [cljs.core.async :refer [promise-chan put! <!]])
+  (:require [cljs.core.async :refer [promise-chan put! <!]]
+            [p5.sound]
+            )
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 
@@ -8,6 +10,7 @@
    [:font "ArcadeAlternate.ttf"]
    [:image "maze.png"]
    [:image "wall.png"]
+   [:sound "snake.mp3"]
    ])
 
 (def preloads (atom #{}))
@@ -19,6 +22,11 @@
     (let [object (.loadImage renderer name #(put! loaded? true))]
       (swap! assets assoc name object))))
 
+(defn load-sound! [renderer name]
+  (let [loaded? (promise-chan)]
+    (swap! preloads conj loaded?)
+    (let [object (.loadSound renderer name #(put! loaded? true))]
+      (swap! assets assoc name object))))
 
 (defn load-font! [renderer name]
   (let [loaded? (promise-chan)]
@@ -30,6 +38,7 @@
   (case type
     :font (load-font! renderer name)
     :image (load-image! renderer name)
+    :sound (load-sound! renderer name)
     ))
 
 (defn load-assets! [renderer]
