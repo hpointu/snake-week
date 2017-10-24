@@ -1,5 +1,7 @@
 (ns snakeweek.core
   (:require [play-cljs.core :as p]
+            [cljs.core.async :refer [take!]]
+            [snakeweek.assets :as assets]
             [snakeweek.maps :as maps]
             [snakeweek.drawing :as d]
             [goog.events :as events]))
@@ -10,6 +12,7 @@
 (defonce state (atom {}))
 (defonce pressed-keys (atom #{}))
 (defonce menu-screen-atom (atom nil))
+(defonce levels (atom []))
 
 
 (defn coords= [[x y] [fx fy]]
@@ -121,7 +124,7 @@
   (let [ct (p/get-total-time game)]
     (reset! state
             (into level
-                  {:snake [[6 5] [5 5] [4 5]]
+                  {:snake [[6 3] [5 3] [4 3]]
                    :speed 70
                    :score 0
                    :level level
@@ -144,49 +147,48 @@
   state)
 
 (def main-screen
-  (let [level (maps/walls 40 30)]
-    (reify p/Screen
-      (on-show [this]
-        (doto js/window
-          (events/removeAll "keydown")
-          (events/removeAll "keyup")
-          (events/listen "keydown"
-                         (fn [e]
-                           (swap! state on-key-down (.-keyCode e))
-                           (swap! pressed-keys conj (.-keyCode e))))
-          (events/listen "keyup"
-                         (fn [e]
-                           (swap! state on-key-up (.-keyCode e))
-                           (swap! pressed-keys disj (.-keyCode e)))))
-        (new-game! level))
-      (on-hide [this])
-      (on-render [this]
-        (swap! state assoc :current-time (p/get-total-time game))
-        (swap! state update-game (p/get-delta-time game))
-        (when (:dead @state) (p/set-screen game @menu-screen-atom))
-        (p/render
-         game
-         [(d/draw-background "#000")
-          [:rect ; container
-           {:x (- (/ (p/get-width game) 2) (/ (* d/UNIT (:width @state)) 2))
-            :y 100}
-            (d/draw-board @state)
-            (d/draw-score @state)
-            (map (d/draw-cell @state) (:snake @state))
-            (let [food (:food @state)]
-              (when food (d/draw-food food)))
-            (d/draw-hud @state)
-           (d/draw-walls (:walls @state))
-           ]]
-         )))))
+  (reify p/Screen
+    (on-show [this]
+      (doto js/window
+        (events/removeAll "keydown")
+        (events/removeAll "keyup")
+        (events/listen "keydown"
+                       (fn [e]
+                         (swap! state on-key-down (.-keyCode e))
+                         (swap! pressed-keys conj (.-keyCode e))))
+        (events/listen "keyup"
+                       (fn [e]
+                         (swap! state on-key-up (.-keyCode e))
+                         (swap! pressed-keys disj (.-keyCode e)))))
+      (new-game! (get @levels 0)))
+    (on-hide [this])
+    (on-render [this]
+      (swap! state assoc :current-time (p/get-total-time game))
+      (swap! state update-game (p/get-delta-time game))
+      (when (:dead @state) (p/set-screen game @menu-screen-atom))
+      (p/render
+       game
+       [(d/draw-background "#000")
+        [:rect ; container
+         {:x (- (/ (p/get-width game) 2) (/ (* d/UNIT (:width @state)) 2))
+          :y 100}
+         (d/draw-board @state)
+         (d/draw-score @state)
+         (map (d/draw-cell @state) (:snake @state))
+         (let [food (:food @state)]
+           (when food (d/draw-food food)))
+         (d/draw-hud @state)
+         (d/draw-walls (:walls @state))
+         ]]
+       ))))
 
 (def credits-screen
   (reify p/Screen
     (on-show [this]
       (events/removeAll js/window "keydown")
       (events/removeAll js/window "keyup")
-      ; (events/listen js/window "keydown"
-      ;                #(p/set-screen game @menu-screen-atom))
+      (events/listen js/window "keydown"
+                     #(p/set-screen game @menu-screen-atom))
       )
 
     (on-render [this]
@@ -200,11 +202,6 @@
            {:width 500 :height 300
             :x (- (/ (p/get-width game) 2) 250)
             :y 20}
-                                        ;[:fill {:color "white"}
-                                        ; [:text {:value "Press any key to go back to main menu"
-                                        ;         :y 300
-                                        ;         :size 12}]
-                                        ; ]
            ]]
          ]))
       )
@@ -242,7 +239,7 @@
             :x (- (/ (p/get-width game) 2) 250)
             :y 20}
            [:no-smooth
-            [:image {:x 100 :y 0 :name "logo.png" :width 300 :height 90}]
+             [:image {:x 100 :y 0 :name "logo.png" :width 300 :height 90}]
             (d/create-menu
              (p/get-total-time game)
              250 150 ["New Game" "View Scores" "Credits"] @active-id)
@@ -250,7 +247,13 @@
         ))
      )))
 
-(doto game
-  (p/start)
-  (p/set-screen menu-screen))
-(reset! menu-screen-atom menu-screen)
+(do
+  (p/start game)
+  (take!
+   (assets/load-assets! (p/get-renderer game))
+   (fn [_]
+     (reset! menu-screen-atom menu-screen)
+     (p/set-screen game menu-screen)
+     (reset! levels [(maps/load-map "maze.png")])
+     )))
+

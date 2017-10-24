@@ -1,7 +1,7 @@
 (ns snakeweek.drawing
   (:require [play-cljs.core :as p]
-            [cljs.core.async :refer [promise-chan put! <!]]
-            )
+            [snakeweek.assets :as assets]
+            [cljs.core.async :refer [promise-chan put! <!]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 (def UNIT 12)
@@ -20,32 +20,21 @@
   (let [[command opts & children] content
         {:keys [x y value size active?] :as opts}
         (p/update-opts opts parent-opts p/text-defaults)]
-    (when (not @font-atom)
-      (let [loaded? (promise-chan)]
-        (reset! font-atom (.loadFont renderer
-                                     "ArcadeAlternate.ttf"
-                                     #(put! loaded? true)))
-        (go (let [finished? (<! loaded?)]
-              (reset! font-ready? true)))))
 
-    (when @font-ready?
+    (let [font (assets/get-asset "ArcadeAlternate.ttf")]
       (doto renderer
         (.textSize size)
-        (.textFont @font-atom)
+        (.textFont font)
         (.textAlign (p/halign->constant renderer :center)
                     (p/valign->constant renderer :center))
-        (.text value x y)
-        )
-
-      (let [font @font-atom
-            bounds (.textBounds font value x y)
+        (.text value x y))
+      (let [bounds (.textBounds font value x y)
             bx (.-x bounds) by (.-y bounds)
             bw (.-w bounds) bh (.-h bounds)]
         (when active?
           (p/draw-sketch! game renderer children
                           (dissoc (p/update-opts opts {:x (- bx x) :y (- by y)} {})
-                                  :value))
-          )
+                                  :value)))
         ))))
 
 (defn draw-cell [state]
@@ -72,12 +61,14 @@
   [:fill {:color "white"}
    [:text {:value (str "Score: " score)
            :x 20 :y (+ 20 (* height UNIT))
-           :size 14 :font "Georgia"}]]){}
+           :font (assets/get-asset "ArcadeAlternate.ttf")
+           :size 14}]]){}
 
 (defn draw-hud [{:keys [paused width height] :as state}]
   (if paused
     [:fill {:color "red"}
      [:text {:value "PAUSED" :size 20
+             :font (assets/get-asset "ArcadeAlternate.ttf")
              :x (- (/ (* UNIT width) 2) 40)
              :y (/ (* UNIT height) 2)}]]
     [])
@@ -86,8 +77,9 @@
 (defn draw-walls [wall-coords]
   (for [[x y] wall-coords]
     [:fill {:color "grey"}
-     [:rect {:x (* UNIT x) :y (* UNIT y)
-             :width UNIT :height UNIT}]]
+     [:image {:x (* UNIT x) :y (* UNIT y)
+              :value (assets/get-asset "wall.png")
+              :width UNIT :height UNIT}]]
     ))
 
 
