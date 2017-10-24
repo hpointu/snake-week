@@ -200,12 +200,7 @@
         game
         [
          (d/draw-background "#000")
-         [:fill {:color "black"}
-          [:rect
-           {:width 500 :height 300
-            :x (- (/ (p/get-width game) 2) 250)
-            :y 20}
-           ]]
+         (d/draw-credits)
          ]))
       )
     (on-hide [this])

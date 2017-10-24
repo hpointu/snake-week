@@ -82,6 +82,32 @@
               :width UNIT :height UNIT}]]
     ))
 
+(defn draw-credits []
+  [:div {:x (/ (.-innerWidth js/window) 2)
+         :y 0
+         :font (assets/get-asset "ArcadeAlternate.ttf")
+         :size 18 :halign :right :width 300}
+   [:no-smooth
+    [:image {:x -150 :y 20 :name "logo.png" :width 300 :height 90}]]
+   [:div {:halign :right :x -10 :y 170}
+    [:fill {:color "#666"}
+     [:text {:y 0 :value "Programming:"}]
+     [:text {:y 40 :value "Graphics:"}]
+     [:text {:y 80 :value "Music:"}]
+     ]]
+   [:div {:halign :left :x 10 :y 170}
+    [:fill {:color "#fff"}
+     [:text {:y 0 :value "Freddy"}]
+     [:text {:y 40 :value "Freddy"}]
+     [:text {:y 80 :value "Freddy"}]
+     ]]
+   [:fill {:color "#fff"}
+    [:text {:halign :center :x -20
+            :y 320
+            :value "Press any key to go back"}
+     ]]]
+  )
+
 
 (defn create-menu [ct x y items active-id]
   (defn active? [i] (= active-id i))
