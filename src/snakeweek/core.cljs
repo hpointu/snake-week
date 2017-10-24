@@ -201,8 +201,21 @@
         [
          (d/draw-background "#000")
          (d/draw-credits)
-         ]))
-      )
+         ])))
+    (on-hide [this])
+    ))
+
+(def loading-screen
+  (reify p/Screen
+    (on-show [this])
+    (on-render [this]
+      (let [i (mod (int (/ (p/get-total-time game) 100)) 5)]
+        (p/render game
+         [(d/draw-background "#000")
+          [:div {:x (/ (.-innerWidth js/window) 2) :y 200}
+           [:fill {:color "white"}
+            [:text {:value "Loading..."
+                    :size 25 :halign :center}]]]])))
     (on-hide [this])
     ))
 
@@ -247,6 +260,7 @@
 
 (do
   (p/start game)
+  (p/set-screen game loading-screen)
   (take!
    (assets/load-assets! (p/get-renderer game))
    (fn [_]

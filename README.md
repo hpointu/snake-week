@@ -1,4 +1,8 @@
 ## Introduction
 
-A play-cljs game in which ... well, that part is up to you. Do `boot run` to develop and `boot build` to compile a release version.
+Build a snake in clojuescript in less than 1 week.
+
+WIP
+
+The last build [Demo](https://snake-ekryyn.herokuapp.com/).
 
