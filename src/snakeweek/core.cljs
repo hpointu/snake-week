@@ -45,8 +45,8 @@
 
 (defn die [{:keys [snake walls] :as state}]
   (let [[head & tail] snake]
-    (if (or (some #(= head %) tail)
-            (some #(= head %) walls))
+    (if (or (some #(coords= head %) tail)
+            (some #(coords= head %) walls))
         (assoc state :dead true)
         state)))
 
@@ -188,8 +188,8 @@
                 body (butlast tail)
                 tail (last tail)]
             [
-             (map d/draw-cell body)
              (d/draw-tail tail)
+             (map d/draw-cell body)
              (d/draw-head head)
              ])
           ]
