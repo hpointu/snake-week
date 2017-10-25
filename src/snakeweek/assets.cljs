@@ -8,9 +8,11 @@
 (def asset-names
   [
    [:font "ArcadeAlternate.ttf"]
+   [:sound "snake.mp3"]
    [:image "maze.png"]
    [:image "wall.png"]
-   [:sound "snake.mp3"]
+
+   [:image "spritesheet.png"]
    ])
 
 (def preloads (atom #{}))

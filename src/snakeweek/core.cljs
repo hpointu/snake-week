@@ -19,7 +19,7 @@
   (and (= x fx) (= y fy)))
 
 (defn update-snake [{:keys [snake dir level]}]
-  (defn adjust [[x y]]
+  (defn adjust [[x y from to]]
     (let [width (:width level)
           height (:height level)
           x (cond (< x 0) (dec width)
@@ -28,16 +28,20 @@
           y (cond (< y 0) (dec height)
                   (>= y height) 0
                   :else y)]
-      [x y]))
+      [x y from to]))
 
-  (defn new-head [[x y]]
+  (defn update-head [[x y from to]]
+    [x y to dir])
+
+  (defn new-head [[x y prev-from prev-to]]
     (case dir
-      :north [x (dec y)]
-      :east  [(inc x) y]
-      :south [x (inc y)]
-      :west  [(dec x) y]))
-  (let [head (first snake)]
-    (cons (-> head new-head adjust) (drop-last snake))))
+      :north [x (dec y) dir dir]
+      :east  [(inc x) y dir dir]
+      :south [x (inc y) dir dir]
+      :west  [(dec x) y dir dir]))
+  (let [[head & tail] snake]
+    (cons (-> head new-head adjust)
+          (drop-last (cons (update-head head) tail)))))
 
 (defn die [{:keys [snake walls] :as state}]
   (let [[head & tail] snake]
@@ -124,8 +128,10 @@
   (let [ct (p/get-total-time game)]
     (reset! state
             (into level
-                  {:snake [[6 3] [5 3] [4 3]]
-                   :speed 70
+                  {:snake [[6 3 :east :east]
+                           [5 3 :east :east]
+                           [4 3 :east :east]]
+                   :speed 500
                    :score 0
                    :level level
                    :paused false
@@ -177,7 +183,13 @@
           :y 100}
          (d/draw-board @state)
          (d/draw-score @state)
-         (map (d/draw-cell @state) (:snake @state))
+         [:no-smooth
+          (let [[head & tail] (:snake @state)]
+            [
+             (map d/draw-cell tail)
+             (d/draw-head head)
+             ])
+          ]
          (let [food (:food @state)]
            (when food (d/draw-food food)))
          (d/draw-hud @state)

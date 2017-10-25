@@ -1,6 +1,7 @@
 (ns snakeweek.drawing
   (:require [play-cljs.core :as p]
             [snakeweek.assets :as assets]
+            [clojure.string :as string]
             [cljs.core.async :refer [promise-chan put! <!]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
@@ -8,6 +9,30 @@
 
 (def font-atom (atom nil))
 (def font-ready? (atom false))
+
+(defn get-orientation [from to]
+  (if (= from to) (keyword to)
+      (keyword (string/join "-" (map name [from to])))))
+
+(def sprites
+  {:wall [0 0]
+   :north [0 0]
+   :south [0 12]
+   :east [0 24]
+   :west [0 36]
+   :west-south [12 0]
+   :south-east [12 12]
+   :north-east [12 24]
+   :west-north [12 36]
+   :north-west [24 0]
+   :east-north [24 12]
+   :east-south [24 24]
+   :south-west [24 36]
+   :head-east [0 48]
+   :head-south [12 48]
+   :head-west [24 48]
+   :head-north [36 48]
+   })
 
 (defmethod p/draw-sketch! :no-smooth [game ^js/p5 renderer content parent-opts]
   (let [[command & children] content]
@@ -37,10 +62,24 @@
                                   :value)))
         ))))
 
-(defn draw-cell [state]
-  (fn [[x y]]
+(defn draw-head [[x y from to]]
+  (let [sprite (keyword (str "head-" (name to)))
+        [sx sy] (sprite sprites)]
+    [:image {:x (* UNIT x) :y (* UNIT y)
+            :swidth UNIT :sheight UNIT
+             :sx sx :sy sy
+             :value (assets/get-asset "spritesheet.png")
+            }]))
+
+(defn draw-cell [[x y from to]]
+  (let [[sx sy] ((get-orientation from to) sprites)]
     [:fill {:color "white"}
-     [:rect {:x (* UNIT x) :y (* UNIT y) :width UNIT :height UNIT}]]))
+     [:image {:x (* UNIT x) :y (* UNIT y)
+              :swidth UNIT :sheight UNIT
+              :sx sx :sy sy
+              :value (assets/get-asset "spritesheet.png")
+              }]
+     ]))
 
 (defn draw-food [[x y ttl]]
   [:fill {:color "yellow"}
