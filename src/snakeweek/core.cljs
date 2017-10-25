@@ -39,8 +39,9 @@
       :east  [(inc x) y prev-to dir]
       :south [x (inc y) prev-to dir]
       :west  [(dec x) y prev-to dir]))
+
   (let [[head & tail] snake]
-    (cons (-> head new-head adjust update-head)
+    (cons (-> head new-head adjust)
           (drop-last (cons (update-head head) tail)))))
 
 (defn die [{:keys [snake walls] :as state}]
@@ -78,9 +79,6 @@
     (if (coords= head food)
       (-> state
           spawn-food
-          (update :snake grow)
-          (update :snake grow)
-          (update :snake grow)
           (update :snake grow)
           (update :speed #(max (dec %) 5))
           (update :score + (get-score (get-age food current-time))))
