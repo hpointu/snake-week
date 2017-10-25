@@ -32,6 +32,10 @@
    :head-south [12 48]
    :head-west [24 48]
    :head-north [36 48]
+   :tail-west [36 0]
+   :tail-north [36 12]
+   :tail-east [36 24]
+   :tail-south [36 36]
    })
 
 (defmethod p/draw-sketch! :no-smooth [game ^js/p5 renderer content parent-opts]
@@ -64,6 +68,15 @@
 
 (defn draw-head [[x y from to]]
   (let [sprite (keyword (str "head-" (name to)))
+        [sx sy] (sprite sprites)]
+    [:image {:x (* UNIT x) :y (* UNIT y)
+             :swidth UNIT :sheight UNIT
+             :sx sx :sy sy
+             :value (assets/get-asset "spritesheet.png")
+             }]))
+
+(defn draw-tail [[x y from to]]
+  (let [sprite (keyword (str "tail-" (name to)))
         [sx sy] (sprite sprites)]
     [:image {:x (* UNIT x) :y (* UNIT y)
             :swidth UNIT :sheight UNIT

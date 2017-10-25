@@ -131,7 +131,7 @@
                   {:snake [[6 3 :east :east]
                            [5 3 :east :east]
                            [4 3 :east :east]]
-                   :speed 500
+                   :speed 80
                    :score 0
                    :level level
                    :paused false
@@ -184,9 +184,12 @@
          (d/draw-board @state)
          (d/draw-score @state)
          [:no-smooth
-          (let [[head & tail] (:snake @state)]
+          (let [[head & tail] (:snake @state)
+                body (butlast tail)
+                tail (last tail)]
             [
-             (map d/draw-cell tail)
+             (map d/draw-cell body)
+             (d/draw-tail tail)
              (d/draw-head head)
              ])
           ]
