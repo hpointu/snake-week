@@ -35,12 +35,12 @@
 
   (defn new-head [[x y prev-from prev-to]]
     (case dir
-      :north [x (dec y) dir dir]
-      :east  [(inc x) y dir dir]
-      :south [x (inc y) dir dir]
-      :west  [(dec x) y dir dir]))
+      :north [x (dec y) prev-to dir]
+      :east  [(inc x) y prev-to dir]
+      :south [x (inc y) prev-to dir]
+      :west  [(dec x) y prev-to dir]))
   (let [[head & tail] snake]
-    (cons (-> head new-head adjust)
+    (cons (-> head new-head adjust update-head)
           (drop-last (cons (update-head head) tail)))))
 
 (defn die [{:keys [snake walls] :as state}]
@@ -50,6 +50,43 @@
         (assoc state :dead true)
         state)))
 
+(defn grow [snake]
+  (let [tail (last snake)]
+    (conj (vec snake) tail))
+  )
+
+(defn get-age [[_ _ birth] current-time]
+  (- current-time birth))
+
+(defn spawn-food [{:keys [width height current-time snake walls] :as state}]
+  (let [x (rand-int width)
+        y (rand-int height)]
+    (if (or (some #(coords= [x y] %) walls)
+            (some #(coords= [x y] %) snake))
+      (spawn-food state)
+      (assoc state
+             :food [x y current-time]
+             :last-spawn current-time))
+    ))
+
+(defn get-score [age]
+  (int (/ (+ 1000 (- 6000 age)) 10)))
+
+(defn eat-food
+  [{:keys [snake head food current-time width height] :as state}]
+  (let [head (first snake)]
+    (if (coords= head food)
+      (-> state
+          spawn-food
+          (update :snake grow)
+          (update :snake grow)
+          (update :snake grow)
+          (update :snake grow)
+          (update :speed #(max (dec %) 5))
+          (update :score + (get-score (get-age food current-time))))
+      state
+      )))
+
 (defn move-snake
   [{:keys [snake dir last-move current-time speed] :as state}]
   (if (> (- current-time last-move) speed)
@@ -57,7 +94,9 @@
         (-> state
             (assoc :snake new
                    :last-move current-time)
-            (die)))
+            (die)
+            (eat-food)
+            ))
       state))
 
 (defn handle-input [state]
@@ -73,46 +112,12 @@
      ))
   )
 
-(defn spawn-food [{:keys [width height current-time snake walls] :as state}]
-  (let [x (rand-int width)
-        y (rand-int height)]
-    (if (or (some #(coords= [x y] %) walls)
-            (some #(coords= [x y] %) snake))
-      (spawn-food state)
-      (assoc state
-             :food [x y current-time]
-             :last-spawn current-time))
-    ))
-
-(defn get-age [[_ _ birth] current-time]
-  (- current-time birth))
-
 (defn update-food
   [{:keys [food current-time width height]:as state} ttl]
   (let [[x y birth] food]
     (if (> (get-age food current-time) ttl)
       (spawn-food state)
       state)))
-
-(defn grow [snake]
-  (let [head (first snake)]
-    (cons head snake))
-  )
-
-(defn get-score [age]
-  (int (/ (+ 1000 (- 6000 age)) 10)))
-
-(defn eat-food
-  [{:keys [snake head food current-time width height] :as state}]
-  (let [head (first snake)]
-    (if (coords= head food)
-      (-> state
-          spawn-food
-          (update :snake grow)
-          (update :speed #(max (dec %) 5))
-          (update :score + (get-score (get-age food current-time))))
-      state
-      )))
 
 (defn update-game [{:keys [dead paused] :as state} delta]
   (if (or dead paused)
@@ -121,7 +126,6 @@
         (handle-input)
         (update-food 10000)
         (move-snake)
-        (eat-food)
         )))
 
 (defn init-state! [level]
@@ -141,8 +145,11 @@
                    :dir :east}))))
 
 (defn new-game! [level]
+  (reset! pressed-keys #{})
   (init-state! level)
-  (swap! state spawn-food))
+  (println "NEW GAME!")
+  (swap! state spawn-food)
+  )
 
 (defn on-key-down [state key-code]
   (if (= key-code 32) ; SPACE BAR
@@ -188,8 +195,8 @@
                 body (butlast tail)
                 tail (last tail)]
             [
-             (d/draw-tail tail)
              (map d/draw-cell body)
+             (d/draw-tail tail)
              (d/draw-head head)
              ])
           ]
