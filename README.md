@@ -4,5 +4,5 @@ Build a snake in clojuescript in less than 1 week.
 
 WIP
 
-The last build [Demo](https://snake-ekryyn.herokuapp.com/).
+The last build [Demo](https://ekryyn.github.io/snake-week/).
 
